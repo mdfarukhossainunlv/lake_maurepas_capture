@@ -6,7 +6,7 @@ on:
   workflow_dispatch:       # allow manual run button
 
 permissions:
-  contents: write   # <-- this line gives the job permission to push commits
+  contents: write  # allow this workflow to push commits back
 
 jobs:
   capture:
@@ -32,10 +32,22 @@ jobs:
           pip install playwright pytz
           playwright install chromium
 
-      - name: Run capture script
+      - name: Run capture script (make new PDF)
         run: |
           python hourly_buoy_screenshot.py
 
-      - name: Push committed PDF(s)
+      - name: Commit PDF(s) if there are changes
+        run: |
+          git config user.email "buoy-bot@example.com"
+          git config user.name "buoy-bot"
+          git add captures/*.pdf
+          # only commit if there is something new
+          if git diff --cached --quiet; then
+            echo "No new PDF to commit."
+          else
+            git commit -m "Add buoy snapshot"
+          fi
+
+      - name: Push to main
         run: |
           git push origin HEAD:main
