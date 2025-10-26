@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write  # allow this workflow to push commits back to the repo
 
 jobs:
   capture:
@@ -27,7 +27,7 @@ jobs:
       - name: Install system libs and Python deps
         run: |
           sudo apt-get update
-          # These are the deps Playwright/Chromium needs on Ubuntu 24.04 runners
+          # IMPORTANT: this list does NOT include 'libasound2'
           sudo apt-get install -y \
             libnss3 \
             libxss1 \
@@ -73,7 +73,6 @@ jobs:
 
       - name: Push to main
         run: |
-          # Only push if we actually committed something
           if git log -1 --pretty=%B | grep -q "Add buoy snapshot"; then
             git push origin HEAD:main
           else
