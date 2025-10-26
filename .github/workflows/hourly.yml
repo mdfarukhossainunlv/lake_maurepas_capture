@@ -2,19 +2,36 @@ name: Hourly buoy capture
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour (UTC)
-  workflow_dispatch:       # allows manual run
+    - cron: "0 * * * *"   # every hour UTC
+  workflow_dispatch:       # allow manual run button
 
 jobs:
   capture:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: |
+
+      - name: Install system libs and Python deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libxss1 libasound2 libxshmfence1 libgbm-dev
+          python -m pip install --upgrade pip
           pip install playwright pytz
           playwright install chromium
+
+      - name: Run capture script
+        run: |
           python hourly_buoy_screenshot.py
-      - run: git push
+
+      - name: Push committed PDF(s)
+        run: |
+          git push
