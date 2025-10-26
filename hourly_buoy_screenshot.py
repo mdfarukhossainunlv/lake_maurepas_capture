@@ -1,4 +1,4 @@
-import os, asyncio, subprocess
+import os, asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
 import pytz
@@ -22,7 +22,6 @@ async def take_pdf_snapshot():
 
     print(f"[INFO] Capturing page at {now}")
     async with async_playwright() as p:
-        # launch browser headless
         browser = await p.chromium.launch(
             headless=True,
             args=[
@@ -42,20 +41,20 @@ async def take_pdf_snapshot():
 
         page = await context.new_page()
 
-        # softer wait: domcontentloaded, longer timeout
+        # Load page with a softer wait
         print("[STEP] Loading page (domcontentloaded)...")
         await page.goto(
             URL,
             wait_until="domcontentloaded",
-            timeout=180000  # 180 sec
+            timeout=180000  # 180 seconds
         )
 
-        # give the page time to render charts / iframes
+        # Give charts/iframes a chance to render
         print("[STEP] Waiting for render...")
         await page.wait_for_timeout(8000)
 
-        # scroll slowly to trigger lazy content
-        print("[STEP] Scrolling page to load dynamic sections...")
+        # Try to scroll to trigger lazy loading
+        print("[STEP] Scrolling page...")
         try:
             scroll_height = await page.evaluate("document.body.scrollHeight")
         except Exception:
@@ -71,7 +70,7 @@ async def take_pdf_snapshot():
         await page.evaluate("window.scrollTo(0,0);")
         await page.wait_for_timeout(2000)
 
-        # make PDF
+        # Save PDF
         print("[STEP] Generating PDF...")
         await page.pdf(
             path=out_file,
@@ -88,17 +87,8 @@ async def take_pdf_snapshot():
         await browser.close()
 
     print(f"[OK] Saved {out_file}")
-
-    # stage + commit this new PDF in git (push happens in workflow, not here)
-    print("[STEP] Commit PDF to repo history...")
-    subprocess.run(["git","config","user.email","github-bot@example.com"],check=True)
-    subprocess.run(["git","config","user.name","buoy-bot"],check=True)
-    subprocess.run(["git","add",out_file],check=True)
-    subprocess.run(
-        ["git","commit","-m",f"Add buoy snapshot {os.path.basename(out_file)}"],
-        check=True
-    )
-    print("[OK] Commit created")
+    # Return the file path so the workflow can use it
+    return out_file
 
 async def main():
     await take_pdf_snapshot()
