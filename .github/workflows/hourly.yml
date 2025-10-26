@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # allow commits to repo
+  contents: write
 
 jobs:
   capture:
@@ -27,6 +27,7 @@ jobs:
       - name: Install system libs and Python deps
         run: |
           sudo apt-get update
+          # ✅ Removed libasound2/libasound2t64 completely
           sudo apt-get install -y \
             libnss3 \
             libxss1 \
@@ -51,7 +52,7 @@ jobs:
             libwayland-client0 \
             libwayland-server0
           python -m pip install --upgrade pip
-          pip install playwright pytz google-api-python-client google-auth-httplib2 google-auth-oauthlib
+          pip install playwright pytz
           playwright install chromium
 
       - name: Run capture script (make new PDF)
@@ -75,55 +76,3 @@ jobs:
           else
             echo "Nothing new to push."
           fi
-
-      - name: Upload to Google Drive
-        env:
-          GOOGLE_CREDS: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          DRIVE_FOLDER_ID: "1AbCdEfGhIjKLmnop"  # <-- REPLACE THIS
-        run: |
-          echo "$GOOGLE_CREDS" > creds.json
-
-          python <<'EOF'
-import os
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-
-# Read folder ID from env
-drive_folder_id = os.environ["DRIVE_FOLDER_ID"]
-
-# Authenticate using the service account creds we wrote to creds.json
-creds = service_account.Credentials.from_service_account_file(
-    "creds.json",
-    scopes=["https://www.googleapis.com/auth/drive.file"]
-)
-service = build("drive", "v3", credentials=creds)
-
-# Find newest .pdf in captures/
-captures_dir = "captures"
-pdfs = [
-    os.path.join(captures_dir, f)
-    for f in os.listdir(captures_dir)
-    if f.endswith(".pdf")
-]
-
-if not pdfs:
-    print("❌ No PDF found, nothing to upload.")
-    raise SystemExit(0)
-
-latest_pdf = max(pdfs, key=os.path.getmtime)
-print(f"[INFO] Uploading {latest_pdf} to Google Drive folder {drive_folder_id}")
-
-file_metadata = {
-    "name": os.path.basename(latest_pdf),
-    "parents": [drive_folder_id],
-}
-media = MediaFileUpload(latest_pdf, mimetype="application/pdf")
-uploaded = service.files().create(
-    body=file_metadata,
-    media_body=media,
-    fields="id,name"
-).execute()
-
-print(f"✅ Uploaded {uploaded['name']} with file ID {uploaded['id']}")
-EOF
