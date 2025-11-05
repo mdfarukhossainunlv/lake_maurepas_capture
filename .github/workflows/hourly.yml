@@ -1,3 +1,4 @@
+
 name: Hourly buoy capture
 
 on:
@@ -18,7 +19,6 @@ jobs:
         with:
           persist-credentials: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0      # <-- needed to pull/rebase
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,52 +28,52 @@ jobs:
       - name: Install system libs and Python deps
         run: |
           sudo apt-get update
+          # ✅ Removed libasound2/libasound2t64 completely
           sudo apt-get install -y \
-            libnss3 libxss1 libxshmfence1 libgbm-dev fonts-liberation \
-            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
-            libpango-1.0-0 libcairo2 libglib2.0-0 libgtk-3-0 libx11-xcb1 \
-            libxcb-dri3-0 libxdamage1 libxfixes3 libxrandr2 libdbus-1-3 \
-            libwayland-client0 libwayland-server0
+            libnss3 \
+            libxss1 \
+            libxshmfence1 \
+            libgbm-dev \
+            fonts-liberation \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libxkbcommon0 \
+            libpango-1.0-0 \
+            libcairo2 \
+            libglib2.0-0 \
+            libgtk-3-0 \
+            libx11-xcb1 \
+            libxcb-dri3-0 \
+            libxdamage1 \
+            libxfixes3 \
+            libxrandr2 \
+            libdbus-1-3 \
+            libwayland-client0 \
+            libwayland-server0
           python -m pip install --upgrade pip
           pip install playwright pytz
           playwright install chromium
 
       - name: Run capture script (make new PDF)
-        run: python capture_buoy.py
+        run: python hourly_buoy_screenshot.py
 
-      - name: Configure git
+      - name: Commit PDF(s) if there are changes
         run: |
           git config user.email "buoy-bot@example.com"
           git config user.name "buoy-bot"
-
-      - name: Stage & commit PDFs if changed
-        id: commit_step
-        run: |
-          mkdir -p captures
-          git add captures/*.pdf 2>/dev/null || true
+          git add captures/*.pdf || true
           if git diff --cached --quiet; then
-            echo "nothing_to_commit=true" >> $GITHUB_OUTPUT
             echo "No new PDF to commit."
           else
             git commit -m "Add buoy snapshot"
-            echo "nothing_to_commit=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Pull latest (rebase) to avoid non-fast-forward
-        if: steps.commit_step.outputs.nothing_to_commit == 'false'
-        run: |
-          git fetch origin main
-          git pull --rebase origin main
-
       - name: Push to main
-        if: steps.commit_step.outputs.nothing_to_commit == 'false'
-        run: git push origin HEAD:main
-
-      # Optional: always upload the PDFs as an artifact so the job never fails if push is blocked
-      - name: Upload artifact (download from run page)
-        uses: actions/upload-artifact@v4
-        with:
-          name: buoy-captures
-          path: captures/*.pdf
-          if-no-files-found: warn
-          retention-days: 14
+        run: |
+          if git log -1 --pretty=%B | grep -q "Add buoy snapshot"; then
+            git push origin HEAD:main
+          else
+            echo "Nothing new to push."
+          fi
