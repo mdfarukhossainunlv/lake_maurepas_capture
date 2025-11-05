@@ -1,0 +1,48 @@
+name: Buoy capture (beginner-friendly)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system libs and Python deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libxss1 libxshmfence1 libgbm-dev fonts-liberation \
+            libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
+            libpango-1.0-0 libcairo2 libglib2.0-0 libgtk-3-0 libx11-xcb1 \
+            libxcb-dri3-0 libxdamage1 libxfixes3 libxrandr2 libdbus-1-3 \
+            libwayland-client0 libwayland-server0
+          python -m pip install --upgrade pip
+          pip install playwright pytz
+          python -m playwright install --with-deps chromium
+
+      - name: Run capture script
+        run: |
+          mkdir -p captures
+          python capture_buoy.py
+          ls -lh captures || true
+
+      - name: Downloadable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: buoy-captures
+          path: captures/*.pdf
+          if-no-files-found: error
+          retention-days: 7
