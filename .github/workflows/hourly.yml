@@ -18,6 +18,7 @@ jobs:
         with:
           persist-credentials: true
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0   # <-- allow pull/rebase
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,7 +28,6 @@ jobs:
       - name: Install system libs and Python deps
         run: |
           sudo apt-get update
-          # Install required system libraries for Chromium
           sudo apt-get install -y \
             libnss3 \
             libxss1 \
@@ -58,21 +58,30 @@ jobs:
       - name: Run capture script (make new PDF)
         run: python capture_buoy.py
 
-      - name: Commit PDF(s) if there are changes
+      - name: Configure git
         run: |
           git config user.email "buoy-bot@example.com"
           git config user.name "buoy-bot"
+
+      - name: Stage PDFs
+        run: |
+          mkdir -p captures
           git add captures/*.pdf || true
           if git diff --cached --quiet; then
             echo "No new PDF to commit."
+            echo "SHOULD_COMMIT=false" >> $GITHUB_ENV
           else
             git commit -m "Add buoy snapshot"
+            echo "SHOULD_COMMIT=true" >> $GITHUB_ENV
           fi
 
-      - name: Push to main
+      - name: Pull latest (rebase) to avoid non-fast-forward
+        if: env.SHOULD_COMMIT == 'true'
         run: |
-          if git log -1 --pretty=%B | grep -q "Add buoy snapshot"; then
-            git push origin HEAD:main
-          else
-            echo "Nothing new to push."
-          fi
+          git fetch origin main
+          git pull --rebase origin main
+
+      - name: Push to main
+        if: env.SHOULD_COMMIT == 'true'
+        run: |
+          git push origin HEAD:main
