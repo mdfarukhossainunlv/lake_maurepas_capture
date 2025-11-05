@@ -70,18 +70,24 @@ async def take_pdf_snapshot():
         await page.evaluate("window.scrollTo(0,0);")
         await page.wait_for_timeout(2000)
 
-        # Save PDF
+        # Compute full page size
+        scroll_width = await page.evaluate("document.documentElement.scrollWidth")
+        scroll_height = await page.evaluate("document.documentElement.scrollHeight")
+
+        # Save PDF (no cropping)
         print("[STEP] Generating PDF...")
         await page.pdf(
             path=out_file,
-            format="A4",
+            width=f"{scroll_width}px",
+            height=f"{scroll_height}px",
             print_background=True,
             margin={
-                "top": "0.5in",
-                "right": "0.5in",
-                "bottom": "0.5in",
-                "left": "0.5in"
+                "top": "0",
+                "right": "0",
+                "bottom": "0",
+                "left": "0"
             },
+            prefer_css_page_size=True
         )
 
         await browser.close()
