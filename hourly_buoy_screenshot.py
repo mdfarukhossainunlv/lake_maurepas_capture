@@ -70,19 +70,23 @@ async def take_pdf_snapshot():
         await page.evaluate("window.scrollTo(0,0);")
         await page.wait_for_timeout(2000)
 
-        # Save PDF
-        print("[STEP] Generating PDF...")
+        # ===== CHANGED BLOCK START (fit full width; paginate vertically) =====
+        # Measure content width and compute a safe scale to fit A2 landscape width.
+        content_width_px = await page.evaluate("document.documentElement.scrollWidth")
+        target_width_px = 2200  # effective width per PDF page
+        scale = min(1.0, target_width_px / max(content_width_px, 1))
+
+        print("[STEP] Generating PDF (A2 landscape, scaled to fit width)...")
         await page.pdf(
             path=out_file,
-            format="A4",
+            format="A2",
+            landscape=True,
             print_background=True,
-            margin={
-                "top": "0.5in",
-                "right": "0.5in",
-                "bottom": "0.5in",
-                "left": "0.5in"
-            },
+            margin={"top": "0.3in", "right": "0.3in", "bottom": "0.3in", "left": "0.3in"},
+            prefer_css_page_size=False,
+            scale=scale,  # ensures all 4 columns fit in page width
         )
+        # ===== CHANGED BLOCK END =====
 
         await browser.close()
 
